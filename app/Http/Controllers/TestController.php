@@ -19,20 +19,17 @@ class TestController extends Controller
             $uri = "tcp://127.0.0.1:1337";
 
             $clientHandler = function (ServerSocket $socket) {
-                $data = '';
+                $buffer = '';
                 while (null !== $chunk = yield $socket->read()) {
-                    $data = $data.$chunk;
 
-                    if ($chunk === PHP_EOL) {
-                        echo $data;
-//                        yield $socket->write('data to be written'.$data."\r\n");
-//                        if ($this->process_data($data)) {
-//
-//                            echo 'success data length = '.strlen($data)."\n";
-//
-//                        }
-//                        $data = '';
+                    $buffer.=$chunk;
+
+                    if($pos = strpos($buffer,'#')!==false)
+                    {
+                        echo $buffer."\n";
+                        $buffer= '';
                     }
+
 
                 }
             };
