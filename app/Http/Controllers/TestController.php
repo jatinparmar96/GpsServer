@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\HistoryData;
 use App\LiveData;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -20,14 +21,21 @@ class TestController extends Controller
 
             $clientHandler = function (ServerSocket $socket) {
                 $buffer = '';
+                $count = 0;
                 while (null !== $chunk = yield $socket->read()) {
 
                     $buffer.=$chunk;
-
-                    if($pos = strpos($buffer,'#')!==false)
+                    if ( preg_match_all("/[0-9].*#.*#.*#.*#/", utf8_decode($buffer), $matches, PREG_OFFSET_CAPTURE))
                     {
-                        echo $buffer."\n";
-                        $buffer= '';
+                        $this->process_history_data($matches[0][0][0]);
+                        $buffer = '';
+                    }
+
+                    if ( preg_match_all("/[0-9].*#/", utf8_decode($buffer), $matches, PREG_OFFSET_CAPTURE))
+                    {
+
+                        $this->process_live_data($matches[0][0][0]);
+                        $buffer = '';
                     }
 
 
@@ -41,9 +49,34 @@ class TestController extends Controller
             }
         });
     }
-
-    protected function process_data($data)
+    protected function process_history_data($data)
     {
+      $data= trim($data);
+      $data_array = explode('*',$data);
+      if (count($data_array)>=5)
+      {
+          for($i=1;$i<5;$i++)
+          {
+              $buffer = explode(",",$data_array[$i]);
+              $imei =$data_array[0];
+              $time = Carbon::createFromFormat('ymdhis', $buffer[0]);
+              $latitude = $buffer[1];
+              $longitude = $buffer[3];
+              $speed = $buffer[6];
+              $live = new HistoryData();
+              $live->imei = $imei;
+              $live->time = $time;
+              $live->latitude = $latitude;
+              $live->longitude = $longitude;
+              $live->speed = $speed;
+              $live->save();
+          }
+      }
+
+    }
+    protected function process_live_data($data)
+    {
+        $data =trim($data);
         $sanitized_data = explode(',', $data);
         if (count($sanitized_data) == 14) {
             $extra_data = explode('*', $sanitized_data[0]);
@@ -62,5 +95,6 @@ class TestController extends Controller
             return true;
         }
         return false;
+
     }
 }
